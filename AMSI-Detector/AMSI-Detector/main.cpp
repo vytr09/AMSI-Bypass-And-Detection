@@ -3,15 +3,64 @@
 #include <tlhelp32.h>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <algorithm>
 #include "MpOavPatchDetector.h"
-#include "AmsiUtilsDetector.h"
+//#include "AmsiUtilsDetector.h"
 
 void printBanner() {
-    std::wcout << L"================================================================" << std::endl;
-    std::wcout << L"=== AMSI Bypass Detector (MpOav.dll Patch Detection) v1.0 ===" << std::endl;
-    std::wcout << L"================================================================" << std::endl;
-    std::wcout << L"Scanning for AMSI bypass techniques in PowerShell processes..." << std::endl;
-    std::wcout << L"================================================================" << std::endl;
+    std::wcout << L"================================================================\n";
+    std::wcout << L"===           AMSI Bypass Detector v1.0 (MpOav/CLRMD)        ===\n";
+    std::wcout << L"================================================================\n";
+    std::wcout << L"Scanning for AMSI bypass techniques in PowerShell processes...\n";
+    std::wcout << L"================================================================\n";
+}
+
+void printProcessHeader(DWORD pid, const std::wstring& exe) {
+    std::wcout << L"\n----------------------------------------------------------------\n";
+    std::wcout << L"[>] Process: " << exe << L" (PID: " << pid << L")\n";
+    std::wcout << L"----------------------------------------------------------------\n";
+}
+
+void printBypassSummary(bool mpoav, bool clrmd, const std::wstring& clrmdOutput) {
+    std::wcout << L"[!] AMSI BYPASS DETECTED!\n";
+    if (mpoav)  std::wcout << L"    - MpOav.dll patch detected\n";
+    if (clrmd) {
+        std::wcout << L"    - CLRMD detected bypass:\n";
+        // Indent each line of clrmdOutput
+        std::wistringstream iss(clrmdOutput);
+        std::wstring line;
+        while (std::getline(iss, line)) {
+            if (!line.empty())
+                std::wcout << L"        " << line << L"\n";
+        }
+    }
+}
+
+void printProcessClean() {
+    std::wcout << L"[+] No AMSI bypass detected in this process.\n";
+}
+
+void printScanSummary(int processesChecked, bool foundBypass, bool foundMpOavBypass, bool foundAmsiUtilsBypass, bool foundClrmdInitFailedBypass, bool foundClrmdContextBypass) {
+    std::wcout << L"\n================================================================\n";
+    std::wcout << L"=== SCAN SUMMARY ==============================================\n";
+    std::wcout << L"Processes scanned: " << processesChecked << L"\n";
+    if (foundBypass) {
+        std::wcout << L"[!] ALERT: AMSI bypass detected in one or more processes!\n";
+        std::wcout << L"[!] This may indicate malicious activity or security testing.\n";
+        std::wcout << L"[!] Detected bypass types:\n";
+        if (foundMpOavBypass)
+            std::wcout << L"    - MpOav.dll DllGetClassObject patching\n";
+        if (foundAmsiUtilsBypass || foundClrmdInitFailedBypass)
+            std::wcout << L"    - AmsiUtils.amsiInitFailed field manipulation\n";
+        if (foundClrmdContextBypass)
+            std::wcout << L"    - AmsiUtils.amsiContext corruption\n";
+    }
+    else {
+        std::wcout << L"[+] No AMSI bypasses detected in any PowerShell process.\n";
+        std::wcout << L"[+] All scanned processes appear to have intact AMSI protection.\n";
+    }
+    std::wcout << L"================================================================\n";
 }
 
 std::vector<DWORD> findPowerShellProcesses() {
@@ -47,7 +96,63 @@ std::vector<DWORD> findPowerShellProcesses() {
     return powerShellPids;
 }
 
+bool CheckAmsiBypassWithClrmd(DWORD pid, std::wstring& output)
+{
+    std::wstring exePath = L"AmsiClrmdHelper.exe"; // Adjust path if needed
+    std::wstring cmd = exePath + L" " + std::to_wstring(pid);
+
+    // Set up pipes for output redirection
+    SECURITY_ATTRIBUTES sa = { sizeof(sa), NULL, TRUE };
+    HANDLE hRead = NULL, hWrite = NULL;
+    if (!CreatePipe(&hRead, &hWrite, &sa, 0))
+        return false;
+
+    STARTUPINFOW si = { sizeof(si) };
+    PROCESS_INFORMATION pi = { 0 };
+    si.dwFlags |= STARTF_USESTDHANDLES;
+    si.hStdOutput = hWrite;
+    si.hStdError = hWrite;
+
+    wchar_t cmdLine[512];
+    wcsncpy_s(cmdLine, cmd.c_str(), _TRUNCATE);
+
+    BOOL success = CreateProcessW(
+        NULL, cmdLine, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+
+    CloseHandle(hWrite);
+
+    if (!success) {
+        CloseHandle(hRead);
+        return false;
+    }
+
+    // Read output
+    char buffer[256];
+    DWORD bytesRead;
+    std::string result;
+    while (ReadFile(hRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0) {
+        buffer[bytesRead] = 0;
+        result += buffer;
+    }
+    CloseHandle(hRead);
+
+    // Wait for process to exit and get exit code
+    WaitForSingleObject(pi.hProcess, 5000);
+    DWORD exitCode = 0;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    output = std::wstring(result.begin(), result.end());
+    return (exitCode == 1); // 1 = bypass detected, 0 = clean, 2 = error
+}
+
 int main() {
+    bool foundMpOavBypass = false;
+    bool foundAmsiUtilsBypass = false;
+    bool foundClrmdInitFailedBypass = false;
+    bool foundClrmdContextBypass = false;
+
     printBanner();
 
     // Find all PowerShell processes
@@ -64,58 +169,46 @@ int main() {
 
     // Check each PowerShell process for AMSI bypass
     detectors::MpOavPatchDetector mpoavDetector;
-    detectors::AmsiUtilsDetector amsiUtilsDetector;
+
     bool foundBypass = false;
     int processesChecked = 0;
 
     for (DWORD pid : powerShellPids) {
-        std::wcout << L"\n[*] Checking process PID: " << pid << std::endl;
-        std::wcout << L"================================================================" << std::endl;
+        std::wstring exeName = L"powershell.exe"; // Or get from PROCESSENTRY32W if available
+        printProcessHeader(pid, exeName);
 
-        // Check for MpOav.dll patching
-        std::wcout << L"[*] Checking for MpOav.dll patches..." << std::endl;
+        std::wcout << L"  [*] Checking for MpOav.dll patches...\n";
         bool mpoavBypass = mpoavDetector.isMpOavPatchedInProcess(pid);
 
-        // Check for AmsiUtils field manipulation
-        std::wcout << L"[*] Checking for AmsiUtils field manipulation..." << std::endl;
-        bool amsiUtilsBypass = amsiUtilsDetector.isAmsiUtilsBypassedInProcess(pid);
+        std::wstring clrmdOutput;
+        bool clrmdBypass = CheckAmsiBypassWithClrmd(pid, clrmdOutput);
 
-        if (mpoavBypass || amsiUtilsBypass) {
+        if (mpoavBypass) foundMpOavBypass = true;
+
+        // Check for specific CLRMD bypasses in the output
+        if (clrmdBypass) {
+            std::wstring lowerOutput = clrmdOutput;
+            std::transform(lowerOutput.begin(), lowerOutput.end(), lowerOutput.begin(), ::towlower);
+            if (lowerOutput.find(L"amsiinitfailed=true") != std::wstring::npos)
+                foundClrmdInitFailedBypass = true;
+            if (lowerOutput.find(L"first 8 bytes are zeroed") != std::wstring::npos ||
+                lowerOutput.find(L"amsicontext is null") != std::wstring::npos)
+                foundClrmdContextBypass = true;
+        }
+
+
+        if (mpoavBypass || clrmdBypass) {
             foundBypass = true;
-            std::wcout << L"[!] WARNING: AMSI bypass detected in process " << pid << L"!" << std::endl;
-            if (mpoavBypass) {
-                std::wcout << L"    - MpOav.dll patch detected" << std::endl;
-            }
-            if (amsiUtilsBypass) {
-                std::wcout << L"    - AmsiUtils field manipulation detected" << std::endl;
-            }
+            printBypassSummary(mpoavBypass, clrmdBypass, clrmdOutput);
         }
         else {
-            std::wcout << L"[+] Process " << pid << L" appears clean." << std::endl;
+            printProcessClean();
         }
         processesChecked++;
     }
 
-    // Summary
-    std::wcout << L"\n================================================================" << std::endl;
-    std::wcout << L"=== SCAN SUMMARY ===" << std::endl;
-    std::wcout << L"Processes scanned: " << processesChecked << std::endl;
+    printScanSummary(processesChecked, foundBypass, foundMpOavBypass, foundAmsiUtilsBypass, foundClrmdInitFailedBypass, foundClrmdContextBypass);
 
-    if (foundBypass) {
-        std::wcout << L"[!] ALERT: AMSI bypass detected in one or more processes!" << std::endl;
-        std::wcout << L"[!] This may indicate malicious activity or security testing." << std::endl;
-        std::wcout << L"[!] Detected bypass types may include:" << std::endl;
-        std::wcout << L"    - MpOav.dll DllGetClassObject patching" << std::endl;
-        std::wcout << L"    - AmsiUtils.amsiInitFailed field manipulation" << std::endl;
-        std::wcout << L"    - AmsiUtils.amsiContext corruption" << std::endl;
-    }
-    else {
-        std::wcout << L"[+] No AMSI bypasses detected in any PowerShell process." << std::endl;
-        std::wcout << L"[+] All scanned processes appear to have intact AMSI protection." << std::endl;
-    }
-
-    std::wcout << L"================================================================" << std::endl;
-    std::wcout << L"\nPress any key to exit..." << std::endl;
     system("pause");
 
     return foundBypass ? 1 : 0;  // Return 1 if bypass detected, 0 if clean
