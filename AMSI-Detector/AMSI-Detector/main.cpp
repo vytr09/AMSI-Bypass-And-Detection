@@ -163,7 +163,12 @@ int main() {
 
     if (powerShellPids.empty()) {
         std::wcout << L"[*] No PowerShell processes found." << std::endl;
-        system("pause");
+        // Pause only if run in a console (interactive)
+        if (GetConsoleWindow() != NULL)
+        {
+            std::wcout << L"\n[+] Press Enter to exit...";
+            std::wcin.get();
+        }
         return 0;
     }
 
@@ -215,7 +220,12 @@ int main() {
 
     printScanSummary(processesChecked, foundBypass, foundMpOavBypass, foundClrmdInitFailedBypass, foundClrmdContextBypass, foundClrmdScanContentBypass);
 
-    system("pause");
+    // Pause only if run in a console (interactive)
+    if (GetConsoleWindow() != NULL)
+    {
+        std::wcout << L"\n[+] Press Enter to exit...";
+        std::wcin.get();
+    }
 
     return foundBypass ? 1 : 0;  // Return 1 if bypass detected, 0 if clean
 }
