@@ -129,11 +129,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="AmsiUtilsDetector.h" />
     <ClInclude Include="MpOavPatchDetector.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AmsiUtilsDetector.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MpOavPatchDetector.cpp" />
   </ItemGroup>

@@ -43,6 +43,8 @@
             this.panel2 = new System.Windows.Forms.Panel();
             this.scanTooltip = new System.Windows.Forms.ToolTip(this.components);
             this.startupTooltip = new System.Windows.Forms.ToolTip(this.components);
+            this.panel3 = new System.Windows.Forms.Panel();
+            this.label1 = new System.Windows.Forms.Label();
             this.choosePnl.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panel1.SuspendLayout();
@@ -122,9 +124,9 @@
             // pictureBox1
             // 
             this.pictureBox1.Image = global::AMSI_Detector_GUI.Properties.Resources.ChatGPT_Image_21_58_13_30_thg_5__2025;
-            this.pictureBox1.Location = new System.Drawing.Point(-2, 1);
+            this.pictureBox1.Location = new System.Drawing.Point(-2, 2);
             this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(485, 351);
+            this.pictureBox1.Size = new System.Drawing.Size(485, 339);
             this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.pictureBox1.TabIndex = 3;
             this.pictureBox1.TabStop = false;
@@ -189,10 +191,28 @@
             // panel2
             // 
             this.panel2.BackColor = System.Drawing.Color.MidnightBlue;
-            this.panel2.Location = new System.Drawing.Point(-2, -1);
+            this.panel2.Location = new System.Drawing.Point(-2, 340);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(485, 354);
+            this.panel2.Size = new System.Drawing.Size(485, 1);
             this.panel2.TabIndex = 6;
+            // 
+            // panel3
+            // 
+            this.panel3.BackColor = System.Drawing.Color.MidnightBlue;
+            this.panel3.Location = new System.Drawing.Point(-2, 0);
+            this.panel3.Name = "panel3";
+            this.panel3.Size = new System.Drawing.Size(485, 1);
+            this.panel3.TabIndex = 7;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.ForeColor = System.Drawing.Color.MidnightBlue;
+            this.label1.Location = new System.Drawing.Point(379, 317);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(99, 20);
+            this.label1.TabIndex = 8;
+            this.label1.Text = "By Group12";
             // 
             // AMSIDetector
             // 
@@ -200,13 +220,15 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(863, 499);
+            this.Controls.Add(this.label1);
+            this.Controls.Add(this.panel3);
             this.Controls.Add(this.textBox2);
             this.Controls.Add(this.textBox1);
             this.Controls.Add(this.infoTxt);
             this.Controls.Add(this.choosePnl);
             this.Controls.Add(this.panel1);
-            this.Controls.Add(this.pictureBox1);
             this.Controls.Add(this.panel2);
+            this.Controls.Add(this.pictureBox1);
             this.Font = new System.Drawing.Font("Cascadia Code", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(163)));
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
@@ -238,6 +260,8 @@
         private System.Windows.Forms.Panel panel2;
         private System.Windows.Forms.ToolTip scanTooltip;
         private System.Windows.Forms.ToolTip startupTooltip;
+        private System.Windows.Forms.Panel panel3;
+        private System.Windows.Forms.Label label1;
     }
 }
 
