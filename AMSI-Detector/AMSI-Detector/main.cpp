@@ -41,7 +41,7 @@ void printProcessClean() {
     std::wcout << L"[+] No AMSI bypass detected in this process.\n";
 }
 
-void printScanSummary(int processesChecked, bool foundBypass, bool foundMpOavBypass, bool foundAmsiUtilsBypass, bool foundClrmdInitFailedBypass, bool foundClrmdContextBypass) {
+void printScanSummary(int processesChecked, bool foundBypass, bool foundMpOavBypass, bool foundClrmdInitFailedBypass, bool foundClrmdContextBypass, bool foundClrmdScanContentBypass) {
     std::wcout << L"\n================================================================\n";
     std::wcout << L"=== SCAN SUMMARY ==============================================\n";
     std::wcout << L"Processes scanned: " << processesChecked << L"\n";
@@ -51,10 +51,12 @@ void printScanSummary(int processesChecked, bool foundBypass, bool foundMpOavByp
         std::wcout << L"[!] Detected bypass types:\n";
         if (foundMpOavBypass)
             std::wcout << L"    - MpOav.dll DllGetClassObject patching\n";
-        if (foundAmsiUtilsBypass || foundClrmdInitFailedBypass)
+        if (foundClrmdInitFailedBypass)
             std::wcout << L"    - AmsiUtils.amsiInitFailed field manipulation\n";
         if (foundClrmdContextBypass)
             std::wcout << L"    - AmsiUtils.amsiContext corruption\n";
+        if (foundClrmdScanContentBypass)
+            std::wcout << L"    - AmsiUtils.ScanContent method pointer swap\n";
     }
     else {
         std::wcout << L"[+] No AMSI bypasses detected in any PowerShell process.\n";
@@ -152,6 +154,7 @@ int main() {
     bool foundAmsiUtilsBypass = false;
     bool foundClrmdInitFailedBypass = false;
     bool foundClrmdContextBypass = false;
+    bool foundClrmdScanContentBypass = false;
 
     printBanner();
 
@@ -183,17 +186,20 @@ int main() {
         std::wstring clrmdOutput;
         bool clrmdBypass = CheckAmsiBypassWithClrmd(pid, clrmdOutput);
 
+
         if (mpoavBypass) foundMpOavBypass = true;
 
         // Check for specific CLRMD bypasses in the output
         if (clrmdBypass) {
             std::wstring lowerOutput = clrmdOutput;
             std::transform(lowerOutput.begin(), lowerOutput.end(), lowerOutput.begin(), ::towlower);
-            if (lowerOutput.find(L"amsiinitfailed=true") != std::wstring::npos)
+            if (lowerOutput.find(L"amsiinitfailed set to true in defaultdomain") != std::wstring::npos)
                 foundClrmdInitFailedBypass = true;
             if (lowerOutput.find(L"first 8 bytes are zeroed") != std::wstring::npos ||
                 lowerOutput.find(L"amsicontext is null") != std::wstring::npos)
                 foundClrmdContextBypass = true;
+            if (lowerOutput.find(L"scancontent missing and method 'm' present in amsiutils") != std::wstring::npos)
+                foundClrmdScanContentBypass = true;
         }
 
 
@@ -207,7 +213,7 @@ int main() {
         processesChecked++;
     }
 
-    printScanSummary(processesChecked, foundBypass, foundMpOavBypass, foundAmsiUtilsBypass, foundClrmdInitFailedBypass, foundClrmdContextBypass);
+    printScanSummary(processesChecked, foundBypass, foundMpOavBypass, foundClrmdInitFailedBypass, foundClrmdContextBypass, foundClrmdScanContentBypass);
 
     system("pause");
 
