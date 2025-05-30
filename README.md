@@ -18,7 +18,7 @@ A tool that can detect AMSI bypasses and modifications. Available in both CLI an
 
 For users who want to try the tools without building from source, a pre-built release is available:
 
-1. Go to the [Releases](https://github.com/yourusername/AMSI-Bypass-And-Detection/releases) page
+1. Go to the [Releases](https://github.com/vytr09/AMSI-Bypass-And-Detection/releases) page
 2. Download the latest test-release
 3. Extract the files
 4. Follow the instructions in the respective README files for each component
